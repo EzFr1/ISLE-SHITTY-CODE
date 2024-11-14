@@ -1,0 +1,107 @@
+
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+local Window = OrionLib:MakeWindow({Name = "Isles ESP & Teleport", HidePremium = false, IntroText = "Isles Helper", SaveConfig = true, ConfigFolder = "IslesESP"})
+
+
+local itemNames = {}
+local espParts = {}
+
+
+local function addESP(item)
+    if not item:IsA("BasePart") then return end  -- Only add ESP to item parts
+
+
+    if item:FindFirstChild("ESP") then return end
+
+
+    local espBox = Instance.new("BoxHandleAdornment")
+    espBox.Name = "ESP"
+    espBox.Adornee = item
+    espBox.Size = item.Size + Vector3.new(0.1, 0.1, 0.1)
+    espBox.Color3 = Color3.fromRGB(0, 255, 0) -- Green color for visibility
+    espBox.AlwaysOnTop = true
+    espBox.ZIndex = 10
+    espBox.Transparency = 0.3
+    espBox.Parent = item
+
+   
+    table.insert(espParts, espBox)
+end
+
+
+local function updateItemList()
+    itemNames = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name ~= "HumanoidRootPart" and obj:FindFirstAncestorOfClass("Model") then
+            if not table.find(itemNames, obj.Name) then
+                table.insert(itemNames, obj.Name)
+                addESP(obj)
+            end
+        end
+    end
+    return itemNames
+end
+
+-- Smooth teleport function with CFrame tweening
+local function teleportToItemSmoothly(itemName)
+    local localPlayer = game.Players.LocalPlayer
+    local localHRP = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+    for _, item in ipairs(workspace:GetDescendants()) do
+        if item.Name == itemName and item:IsA("BasePart") then
+            
+            local TweenService = game:GetService("TweenService")
+            local tweenInfo = TweenInfo.new(2, Enum.EasingStyle.Linear)  -- Adjust time for smoothness
+
+            local function smoothTeleport()
+                if localHRP then
+            
+                    local tween = TweenService:Create(localHRP, tweenInfo, {CFrame = item.CFrame})
+                    tween:Play()
+                    tween.Completed:Wait()
+                    
+                    -- Keep teleporting if there's any lagback
+                    if (localHRP.Position - item.Position).magnitude > 5 then
+                        smoothTeleport() -- Retry if not close enough
+                    end
+                end
+            end
+
+            smoothTeleport() -- Callback++ Check XD
+            break
+        end
+    end
+end
+
+
+local ESPTab = Window:MakeTab({
+    Name = "ESP & Teleport",
+    Icon = "rbxassetid://4483345998",
+    PremiumOnly = false
+})
+
+
+local ItemDropdown = ESPTab:AddDropdown({
+    Name = "Select Item to Teleport",
+    Options = updateItemList(),
+    Callback = function(selected)
+        teleportToItemSmoothly(selected)
+    end
+})
+
+
+workspace.DescendantAdded:Connect(function(descendant)
+    ItemDropdown:Refresh(updateItemList(), true)
+end)
+
+ESPTab:AddToggle({
+    Name = "Enable ESP",
+    Default = true,
+    Callback = function(state)
+        for _, espBox in ipairs(espParts) do
+            espBox.Enabled = state
+        end
+    end
+})
+
+OrionLib:Init()
